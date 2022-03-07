@@ -190,7 +190,7 @@ resource "random_password" "web-linux-vm-password" {
 }
 
 resource "azurerm_postgresql_server" "psql" {
-  name                = "postgresql-server-1"
+  name                = "petruspostgreserver"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
@@ -202,7 +202,15 @@ resource "azurerm_postgresql_server" "psql" {
   auto_grow_enabled            = true
 
   administrator_login          = "psqladmin"
-  administrator_login_password = "random_password.web-linux-vm-password.result"
+  administrator_login_password = random_password.web-linux-vm-password.result
   version                      = "9.5"
   ssl_enforcement_enabled      = true
+}
+
+resource "azurerm_postgresql_database" "testidb" {
+  name                = "testidb"
+  resource_group_name = azurerm_resource_group.rg.name
+  server_name         = azurerm_postgresql_server.psql.name
+  charset             = "UTF8"
+  collation           = "English_United States.1252"
 }
