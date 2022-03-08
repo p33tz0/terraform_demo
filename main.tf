@@ -3,7 +3,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 2.65"
+      version = "~> 2.98"
     }
   }
 
@@ -161,9 +161,9 @@ resource "azurerm_linux_virtual_machine" "web-linux-vm" {
   network_interface_ids = [azurerm_network_interface.web-linux-vm-nic.id]
   size                  = "Standard_B2s"
   source_image_reference {
-    offer     = "debian-11"
-    publisher = "Debian"
-    sku       = "11-gen2"
+    offer     = "UbuntuServer"
+    publisher = "Canonical"
+    sku       = "18.04-LTS"
     version   = "latest"
   }
   os_disk {
@@ -173,7 +173,44 @@ resource "azurerm_linux_virtual_machine" "web-linux-vm" {
   }
   computer_name = "linux-${random_string.random-linux-vm.result}-vm"
   admin_username = "petrus"
-  admin_password = var.admin_password
-  custom_data = base64encode(data.template_file.linux-vm-cloud-init.rendered)
+  admin_password = random_password.web-linux-vm-password.result
   disable_password_authentication = false
+  custom_data    = base64encode(data.template_file.linux-vm-cloud-init.rendered)
+}
+
+# Generate random password
+resource "random_password" "web-linux-vm-password" {
+  length           = 16
+  min_upper        = 2
+  min_lower        = 2
+  min_special      = 2
+  number           = true
+  special          = true
+  override_special = "!@#$%&"
+}
+
+resource "azurerm_postgresql_server" "psql" {
+  name                = "petruspostgreserver"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  sku_name = "B_Gen5_2"
+
+  storage_mb                   = 5120
+  backup_retention_days        = 7
+  geo_redundant_backup_enabled = false
+  auto_grow_enabled            = true
+
+  administrator_login          = "psqladmin"
+  administrator_login_password = random_password.web-linux-vm-password.result
+  version                      = "9.5"
+  ssl_enforcement_enabled      = true
+}
+
+resource "azurerm_postgresql_database" "testidb" {
+  name                = "testidb"
+  resource_group_name = azurerm_resource_group.rg.name
+  server_name         = azurerm_postgresql_server.psql.name
+  charset             = "UTF8"
+  collation           = "English_United States.1252"
 }
